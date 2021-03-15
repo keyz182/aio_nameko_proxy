@@ -5,6 +5,7 @@ import asyncio
 import ssl
 from enum import Enum
 from typing import Optional, Any
+from six.moves import UserDict
 
 import aiormq
 from yarl import URL
@@ -38,7 +39,7 @@ class AIOClusterRpcProxy(object):
         self.reply_listener = ReplyListener(self, time_out=self._con_time_out)
 
     def parse_config(self) -> None:
-        if not isinstance(config, dict):
+        if not isinstance(config, (dict, UserDict)):
             raise ConfigError("config must be an instance of dict!")
 
         amqp_uri = config.pop(AMQP_URI_CONFIG_KEY, None)
