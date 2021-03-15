@@ -28,13 +28,13 @@ from .pool import ProxyPool, PoolItemContextManager
 class AIOClusterRpcProxy(object):
 
     def __init__(self, loop: Optional[asyncio.AbstractEventLoop] = None):
+        self._proxies = {}
         self.parse_config()
         if not loop:
             loop = asyncio.get_event_loop()
         self.loop = loop
         self.virtual_service_name = "aio_rpc_proxy"
         self.connection = None
-        self._proxies = {}
 
         self.reply_listener = ReplyListener(self, time_out=self._con_time_out)
 
@@ -42,7 +42,7 @@ class AIOClusterRpcProxy(object):
         if not isinstance(config, (dict, UserDict)):
             raise ConfigError("config must be an instance of dict!")
 
-        amqp_uri = config.pop(AMQP_URI_CONFIG_KEY, None)
+        amqp_uri = config.get(AMQP_URI_CONFIG_KEY, None)
         if not amqp_uri:
             raise ConfigError('Can not find config key named the "AMQP_URI"')
 
@@ -50,11 +50,11 @@ class AIOClusterRpcProxy(object):
 
         self.serializer, self.accept = serialization_setup()
 
-        self._exchange_name = config.pop(RPC_EXCHANGE_CONFIG_KEY)
+        self._exchange_name = config.get(RPC_EXCHANGE_CONFIG_KEY, 'nameko-rpc')
 
-        self._time_out = config.get('AIO', {}).pop('time_out', DEFAULT_TIMEOUT)
-        self._con_time_out = config.get('AIO', {}).pop('con_time_out', DEFAULT_CON_TIMEOUT)
-        self.ssl_options = config.pop(AMQP_SSL_CONFIG_KEY, {})
+        self._time_out = config.get('AIO', {}).get('time_out', DEFAULT_TIMEOUT)
+        self._con_time_out = config.get('AIO', {}).get('con_time_out', DEFAULT_CON_TIMEOUT)
+        self.ssl_options = config.get(AMQP_SSL_CONFIG_KEY, {})
         self.options = config
 
     async def _connect(self) -> None:
@@ -107,6 +107,8 @@ class AIOClusterRpcProxy(object):
         await self.close()
 
     def __getattr__(self, name) -> "ServiceProxy":
+        if name == '_proxies':
+            raise AttributeError
         if name not in self._proxies:
             self._proxies[name] = ServiceProxy(name, self, **self.options)
         return self._proxies[name]
@@ -124,8 +126,8 @@ class AIOPooledClusterRpcProxy(object):
 
     def parse_config(self) -> None:
         aio_conf = config.get('AIO', {})
-        self.pool_size = aio_conf.pop("pool_size", 5)
-        self.initial_size = aio_conf.pop("initial_size", 2)
+        self.pool_size = aio_conf.get("pool_size", 5)
+        self.initial_size = aio_conf.get("initial_size", 2)
         self.con_time_out = aio_conf.get('con_time_out', None)
 
         self._config = aio_conf.copy()
