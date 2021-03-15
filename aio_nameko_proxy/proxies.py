@@ -16,19 +16,18 @@ from aio_pika import (connect_robust,
                       Exchange)
 from aio_pika.types import TimeoutType
 from nameko.serialization import setup as serialization_setup
+from nameko import config
 from kombu.serialization import loads, dumps, prepare_accept_content
 
-from .excs import ConfigError, deserialize
 from .constants import *
+from .excs import ConfigError, deserialize
 from .pool import ProxyPool, PoolItemContextManager
 
 
 class AIOClusterRpcProxy(object):
 
-    def __init__(self, config: dict, loop: Optional[asyncio.AbstractEventLoop] = None):
-        if not config:
-            raise ConfigError("Please provide config dict")
-        self.parse_config(config)
+    def __init__(self, loop: Optional[asyncio.AbstractEventLoop] = None):
+        self.parse_config()
         if not loop:
             loop = asyncio.get_event_loop()
         self.loop = loop
@@ -38,27 +37,24 @@ class AIOClusterRpcProxy(object):
 
         self.reply_listener = ReplyListener(self, time_out=self._con_time_out)
 
-    def parse_config(self, config: dict) -> None:
+    def parse_config(self) -> None:
         if not isinstance(config, dict):
             raise ConfigError("config must be an instance of dict!")
 
-        self._config = config
-        _config = config.copy()
-
-        amqp_uri = _config.pop("AMQP_URI", None)
+        amqp_uri = config.pop(AMQP_URI_CONFIG_KEY, None)
         if not amqp_uri:
             raise ConfigError('Can not find config key named the "AMQP_URI"')
 
         self.url = URL(amqp_uri)
 
-        self.serializer, self.accept = serialization_setup(_config)
+        self.serializer, self.accept = serialization_setup()
 
-        self._exchange_name = _config.pop(RPC_EXCHANGE_CONFIG_KEY, RPC_EXCHANGE_NAME)
+        self._exchange_name = config.pop(RPC_EXCHANGE_CONFIG_KEY)
 
-        self._time_out = _config.pop('time_out', DEFAULT_TIMEOUT)
-        self._con_time_out = _config.pop('con_time_out', DEFAULT_CON_TIMEOUT)
-        self.ssl_options = _config.pop(AMQP_SSL_CONFIG_KEY, {})
-        self.options = _config
+        self._time_out = config.get('AIO', {}).pop('time_out', DEFAULT_TIMEOUT)
+        self._con_time_out = config.get('AIO', {}).pop('con_time_out', DEFAULT_CON_TIMEOUT)
+        self.ssl_options = config.pop(AMQP_SSL_CONFIG_KEY, {})
+        self.options = config
 
     async def _connect(self) -> None:
         ssl_ = False
@@ -119,18 +115,19 @@ class AIOPooledClusterRpcProxy(object):
     _pool = None
     _closed = False
 
-    def __init__(self, config: dict, loop: Optional[asyncio.AbstractEventLoop] = None):
+    def __init__(self, loop: Optional[asyncio.AbstractEventLoop] = None):
         if not config:
             raise ConfigError("Please provide config dict")
-        self.parse_config(config)
+        self.parse_config()
         self.loop = loop
 
-    def parse_config(self, config: dict) -> None:
-        self.pool_size = config.pop("pool_size", 5)
-        self.initial_size = config.pop("initial_size", 2)
-        self.con_time_out = config.get('con_time_out', None)
+    def parse_config(self) -> None:
+        aio_conf = config.get('AIO', {})
+        self.pool_size = aio_conf.pop("pool_size", 5)
+        self.initial_size = aio_conf.pop("initial_size", 2)
+        self.con_time_out = aio_conf.get('con_time_out', None)
 
-        self._config = config.copy()
+        self._config = aio_conf.copy()
 
     async def init_pool(self) -> None:
         if self._pool is None:
@@ -142,7 +139,7 @@ class AIOPooledClusterRpcProxy(object):
         await self._pool.init_proxies()
 
     async def _make_rpc_proxy(self) -> "AIOClusterRpcProxy":
-        cluster_rpc = AIOClusterRpcProxy(config=self._config)
+        cluster_rpc = AIOClusterRpcProxy()
         return await cluster_rpc.start()
 
     async def get_proxy(self):

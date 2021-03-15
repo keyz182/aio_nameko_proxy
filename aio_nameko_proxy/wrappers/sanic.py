@@ -5,7 +5,6 @@ from typing import Optional
 
 import aiotask_context as ctx
 from aio_nameko_proxy import AIOPooledClusterRpcProxy
-from aio_nameko_proxy.constants import CAPITAL_CONFIG_KEYS
 try:
     from sanic import Sanic
 except ImportError:
@@ -20,17 +19,7 @@ class SanicNamekoClusterRpcProxy(AIOPooledClusterRpcProxy):
             self.init_app(app)
 
     def init_app(self, app: "Sanic") -> None:
-        config = dict()
-        for k, v in app.config.items():
-            match = re.match(r"NAMEKO_(?P<name>.*)", k)
-            if match:
-                name = match.group("name")
-                if name in CAPITAL_CONFIG_KEYS:
-                    config[name] = v
-                    continue
-                name = name.lower()
-                config[name] = v
-        self.parse_config(config)
+        self.parse_config()
 
         @app.listener('after_server_start')
         async def _set_aiotask_factory(app, loop):

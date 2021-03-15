@@ -6,7 +6,6 @@ import aiotask_context as ctx
 from typing import Any
 
 from aio_nameko_proxy import AIOPooledClusterRpcProxy
-from aio_nameko_proxy.constants import CAPITAL_CONFIG_KEYS
 
 try:
     from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -28,23 +27,13 @@ from . import rpc_cluster
 
 class FastApiNamekoProxyMiddleware(AIOPooledClusterRpcProxy, BaseHTTPMiddleware):
 
-    def __init__(self, app: "ASGIApp", config: "Any"):
+    def __init__(self, app: "ASGIApp"):
         self.dispatch_func = self.dispatch
         self.app = app
-        self.init_app(app, config)
+        self.init_app(app)
 
-    def init_app(self, app: "ASGIApp", config: "Any") -> None:
-
-        _config = dict()
-        for k in dir(config):
-            match = re.match(r"NAMEKO_(?P<name>.*)", k)
-            if match:
-                name = match.group("name")
-                if name in CAPITAL_CONFIG_KEYS:
-                    _config[name] = getattr(config, k)
-                    continue
-                _config[name.lower()] = getattr(config, k)
-        self.parse_config(_config)
+    def init_app(self, app: "ASGIApp") -> None:
+        self.parse_config()
 
         while hasattr(app, "app"):
             app = app.app
