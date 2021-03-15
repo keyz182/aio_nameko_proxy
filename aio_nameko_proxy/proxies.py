@@ -38,6 +38,14 @@ class AIOClusterRpcProxy(object):
 
         self.reply_listener = ReplyListener(self, time_out=self._con_time_out)
 
+        self.context = {}
+
+    def set_context(self, key, value):
+        self.context['nameko.'+key] = value
+
+    def get_headers(self):
+        return self.context
+
     def parse_config(self) -> None:
         if not isinstance(config, (dict, UserDict)):
             raise ConfigError("config must be an instance of dict!")
@@ -341,12 +349,16 @@ class MethodProxy(object):
         content_type, content_encoding, body = dumps(payload, serializer)
         if isinstance(body, str): body = bytes(body, content_encoding)
 
+        headers = self.options.pop('headers', {})
+        headers.update(self.cluster_proxy.get_headers())
+
         msg = Message(
             body,
             content_type=content_type,
             content_encoding=content_encoding,
             reply_to=reply_to,
             correlation_id=correlation_id,
+            headers=headers,
             **options
         )
         return msg
