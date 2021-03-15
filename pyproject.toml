@@ -9,7 +9,7 @@ keywords = ["nameko", "sanic", "asyncio", "rpc", "fastapi"]
 homepage = "https://github.com/laiyongtao/aio_nameko_proxy"
 readme = "README.md"
 packages = [
-    { include = "edu_auth_service" }
+    { include = "aio_nameko_proxy" }
 ]
 
 [tool.poetry.dependencies]
