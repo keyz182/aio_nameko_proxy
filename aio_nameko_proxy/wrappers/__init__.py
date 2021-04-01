@@ -1,5 +1,6 @@
 # coding=utf-8
 import logging
+from contextvars import ContextVar
 from aio_nameko_proxy import AIOClusterRpcProxy
 from aio_nameko_proxy.pool import PoolItemContextManager
 
@@ -41,7 +42,7 @@ class _ForHint:
 
 from typing import cast
 
-rpc_cluster = cast(_ForHint, _Cluster())
+rpc_cluster = cast(_ForHint, _Cluster(ContextVar("proxy")))
 
 from .sanic import SanicNamekoClusterRpcProxy
 from .fastapi import FastApiNamekoProxyMiddleware
