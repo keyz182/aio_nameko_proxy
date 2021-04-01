@@ -6,23 +6,23 @@ from aio_nameko_proxy.pool import PoolItemContextManager
 
 class _Cluster(object):
 
-    def __init__(self):
-        self.instance = None
+    def __init__(self, ctx: "ContextVar"):
+        self.ctx = ctx
+        self.token = None
+        self.obj = None
 
     def _set(self, obj):
-        if self.instance is None:
-            self.instance = obj
-            return
-        if type(self.instance) == type(obj):
-            return
-
-        self.instance = obj
-        logging.warning("Reset the cluster instance from {} to {}!".format(type(self.instance), type(obj)))
+        self.obj = obj
+        if self.token is not None:
+            self.ctx.reset(self.token)
+        self.token = self.ctx.set(obj)
 
     def __getattr__(self, name):
-        if not self.instance:
-            raise RuntimeError("Please initialize your cluster before using")
-        return getattr(self.instance, name)
+        instance = self.ctx.get(None)
+        if not instance:
+            # raise RuntimeError("Please initialize your cluster before using")
+            instance = self.obj
+        return getattr(instance, name)
 
 
 class _ForHint:
